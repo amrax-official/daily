@@ -138,7 +138,9 @@ body::after{
   box-shadow:var(--shadow-sm),inset 0 0 0 1px var(--line);
   font-family:'Outfit',sans-serif;font-weight:700;
   font-variant-numeric:tabular-nums;letter-spacing:.01em;
+  white-space:nowrap;
 }
+.clock .ampm{font-size:.66em;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-left:2px}
 .clock .dot{
   width:8px;height:8px;border-radius:50%;background:var(--money);
   box-shadow:0 0 0 0 rgba(16,185,129,.55);
@@ -244,14 +246,21 @@ body::after{
   background:#fff;box-shadow:0 0 0 3px var(--c),0 4px 10px -4px var(--c);
   transition:background .25s,transform .25s;
 }
-.tl.done{opacity:.52}
+.tl.done{background:color-mix(in srgb,var(--c) 6%,var(--surface-solid))}
 .tl.done::before{background:var(--c);transform:scale(1.15)}
-.tl.done .tl-name{text-decoration:line-through;text-decoration-color:#b9c2d4}
+.tl.done .tl-name{color:#96a2b8;text-decoration:line-through;text-decoration-color:#c6cedd}
+.tl.done .time{color:#a9b3c5}
+.tl.done .tag{opacity:.7}
 .tl-body{min-width:0}
 .tl-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .tl .time{
   font-family:'Outfit',sans-serif;font-weight:700;font-size:.94rem;
   color:var(--ink-2);font-variant-numeric:tabular-nums;letter-spacing:.01em;
+  white-space:nowrap;
+}
+.tl .time .ap{
+  font-style:normal;font-size:.62em;font-weight:700;letter-spacing:.08em;
+  color:var(--muted);margin-left:2px;
 }
 .tl .tl-name{font-size:.95rem;font-weight:600;letter-spacing:-.01em;margin-top:4px}
 .tl .tag{
@@ -262,15 +271,20 @@ body::after{
 }
 .tl .tag i{width:5px;height:5px;border-radius:50%;background:var(--c);display:block;flex:none}
 .tick{
-  width:42px;height:42px;flex:none;border-radius:13px;cursor:pointer;
-  display:grid;place-items:center;color:#b9c2d4;
-  background:var(--surface-2);
-  box-shadow:inset 0 0 0 1px var(--line);
-  transition:all .22s;
+  width:44px;height:44px;flex:none;border-radius:50%;cursor:pointer;
+  display:grid;place-items:center;color:#c2cbdb;
+  background:#fff;
+  box-shadow:inset 0 0 0 2px #dce3ef;
+  transition:box-shadow .22s,color .22s,transform .22s,background .22s;
+  -webkit-tap-highlight-color:transparent;
 }
-.tick:hover{color:var(--money);transform:scale(1.06)}
-.tick svg{width:18px;height:18px;opacity:0;transform:scale(.4);transition:all .25s cubic-bezier(.34,1.56,.64,1)}
-.tl.done .tick{color:#fff;background:var(--money);box-shadow:0 10px 20px -12px var(--money)}
+.tick:hover{color:var(--c);box-shadow:inset 0 0 0 2px var(--c);transform:scale(1.06)}
+.tick:focus-visible{outline:2px solid var(--brand);outline-offset:3px}
+.tick svg{width:20px;height:20px;opacity:0;transform:scale(.4);transition:all .25s cubic-bezier(.34,1.56,.64,1)}
+.tl.done .tick{
+  color:#fff;background:var(--c);
+  box-shadow:inset 0 0 0 2px var(--c),0 0 0 4px color-mix(in srgb,var(--c) 16%,transparent);
+}
 .tl.done .tick svg{opacity:1;transform:scale(1)}
 .tl.pop{animation:pop .38s cubic-bezier(.34,1.56,.64,1)}
 @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.022)}100%{transform:scale(1)}}
@@ -385,7 +399,7 @@ body::after{
   .tl .time{font-size:.82rem}
   .tl .tl-name{font-size:.86rem;line-height:1.34}
   .tl .tag{font-size:.6rem;padding:2px 7px}
-  .tick{width:44px;height:44px;border-radius:14px;align-self:center}
+  .tick{width:44px;height:44px;align-self:center}
   .blocks{gap:20px}
 
   .segs{gap:4px}
@@ -396,6 +410,15 @@ body::after{
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
+}
+/* very small phones: tighten time + category badge so nothing overflows or wraps */
+@media (max-width:380px){
+  .tl-meta{gap:6px}
+  .tl .time{font-size:.74rem}
+  .tl .time .ap{font-size:.56em}
+  .tl .tag{font-size:.54rem;padding:2px 6px;gap:4px;letter-spacing:.03em}
+  .tl .tag i{width:4px;height:4px}
+  .tl{min-height:94px}
 }
 </style>
 </head>
@@ -433,7 +456,7 @@ body::after{
     </div>
     <div class="clock">
       <span class="dot"></span>
-      <span class="lbl">Now&nbsp;</span><span id="clock">--:--</span>
+      <span class="lbl">Now&nbsp;</span><span id="clock">--:--</span><span class="ampm" id="ampm">AM</span>
     </div>
   </header>
 
@@ -478,7 +501,7 @@ body::after{
         <div class="ico"><svg width="19" height="19"><use href="#i-clock"/></svg></div>
         <div>
           <h2>Daily Timeline</h2>
-          <p>04:00 to 23:00, tap a card to mark it done</p>
+          <p>4:00 AM to 11:00 PM, tap a card to mark it done</p>
         </div>
       </div>
       <div class="blocks" id="timeline"></div>
@@ -564,6 +587,11 @@ const save=()=>localStorage.setItem(key,JSON.stringify(data));
 const $=s=>document.querySelector(s);
 const icon=(id,size=17)=>`<svg width="${size}" height="${size}" viewBox="0 0 24 24"><use href="#${id}"/></svg>`;
 const pad=n=>String(n).padStart(2,'0');
+/* 24h "HH:MM" -> { time:"H:MM", ap:"AM"|"PM" } for 12-hour display */
+const to12=t=>{
+  const [h,m]=t.split(':').map(Number);
+  return {time:(h%12||12)+':'+pad(m),ap:h>=12?'PM':'AM'};
+};
 
 /* ---------- Header ---------- */
 $('#date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -572,7 +600,8 @@ function greet(){const h=new Date().getHours();
 greet();
 function tick(){
   const d=new Date();
-  $('#clock').textContent=pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
+  $('#clock').textContent=to12(pad(d.getHours())+':'+pad(d.getMinutes())).time+':'+pad(d.getSeconds())+' ';
+  $('#ampm').textContent=d.getHours()>=12?'PM':'AM';
 }
 tick();setInterval(tick,1000);
 
@@ -615,15 +644,16 @@ $('#timeline').innerHTML=BLOCKS.map(([name,from,to])=>{
     <div class="block-label">${name}</div>
     <div class="rail">${rows.map(({r,i})=>{
       const c=CATS[r[2]]||CATS.Money;
+      const t=to12(r[0]);
       return `<div class="tl" data-i="${i}" style="--c:${c.c}">
         <div class="tl-body">
           <div class="tl-meta">
-            <span class="time">${r[0]}</span>
+            <span class="time">${t.time} <i class="ap">${t.ap}</i></span>
             <span class="tag"><i></i>${c.label||r[2]}</span>
           </div>
           <div class="tl-name">${r[1]}</div>
         </div>
-        <button class="tick" aria-label="Mark ${r[1]} done" aria-pressed="false">${icon('i-check',18)}</button>
+        <button class="tick" role="checkbox" aria-checked="false" aria-label="${r[0]} ${r[1]}">${icon('i-check',20)}</button>
       </div>`;}).join('')}</div>
   </div>`;
 }).join('');
@@ -651,7 +681,7 @@ function render(){
   document.querySelectorAll('.tl').forEach(el=>{
     const i=+el.dataset.i,on=!!data.checks[i];
     el.classList.toggle('done',on);
-    el.querySelector('.tick').setAttribute('aria-pressed',on);
+    el.querySelector('.tick').setAttribute('aria-checked',on);
   });
 
   ['money','growth','health'].forEach((k,i)=>{
