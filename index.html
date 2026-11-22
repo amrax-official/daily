@@ -199,6 +199,15 @@ body{
 .quote-card cite{display:block;margin-top:14px;font-size:.74rem;font-style:normal;color:var(--muted);letter-spacing:.16em;text-transform:uppercase;font-weight:600}
 
 /* Dock */
+/* Alarm modal */
+.alarm-overlay{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(8px)}
+.alarm-overlay.show{display:flex}
+.alarm-modal{background:var(--surface-solid);border:1px solid var(--line);border-radius:24px;padding:32px 28px;max-width:360px;width:90%;text-align:center;box-shadow:0 40px 80px -20px rgba(0,0,0,.6);animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
+.alarm-modal .alarm-icon{font-size:3rem;margin-bottom:12px;animation:ring 1s ease-in-out infinite alternate}
+@keyframes ring{from{transform:rotate(-15deg)}to{transform:rotate(15deg)}}
+.alarm-modal h3{margin:0 0 8px;font-family:'Space Grotesk',sans-serif;font-size:1.3rem;font-weight:700;color:var(--ink)}
+.alarm-modal p{margin:0 0 20px;font-size:.9rem;color:var(--muted)}
+
 .dock{position:fixed;z-index:50;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:none;gap:4px;padding:8px;border-radius:20px;background:var(--surface);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);box-shadow:var(--shadow),inset 0 0 0 1px var(--line)}
 .dock button{flex:1;border:0;background:transparent;cursor:pointer;display:grid;place-items:center;gap:3px;padding:10px 4px;border-radius:14px;color:var(--muted);font-family:'Inter',sans-serif;font-size:.64rem;font-weight:600;transition:all .2s}
 .dock button svg{width:19px;height:19px}
@@ -231,7 +240,6 @@ body{
 <div class="shell">
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark">D</div>
       <div>
         <h1 id="greeting">Command Center</h1>
         <small id="date">—</small>
@@ -281,7 +289,18 @@ body{
           Reset Today
         </button>
       </div>
-      <p style="font-size:.78rem;color:var(--muted);margin:0">Clears all completed items for a fresh start.</p>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+        <button class="reset-btn" id="alarmBtn" style="background:linear-gradient(135deg,var(--glow),var(--brand));box-shadow:0 14px 30px -14px var(--glow)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          Enable Alarms
+        </button>
+        <button class="reset-btn" id="testAlarmBtn" style="margin-top:10px;background:linear-gradient(135deg,var(--brand-2),var(--brand));box-shadow:0 14px 30px -14px var(--brand)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          Test Alarm
+        </button>
+        <p id="alarmStatus" style="font-size:.76rem;color:var(--muted);margin:10px 0 0">Alarms off</p>
+      </div>
+      <p style="font-size:.78rem;color:var(--muted);margin:10px 0 0">Clears all completed items for a fresh start.</p>
     </section>
 
     <section class="card col-8" id="s-timeline">
@@ -300,6 +319,15 @@ body{
       <p>Focus on the next important action. Consistency beats perfection.</p>
       <cite>Daily Reminder</cite>
     </section>
+  </div>
+</div>
+
+<div class="alarm-overlay" id="alarmOverlay">
+  <div class="alarm-modal">
+    <div class="alarm-icon">⏰</div>
+    <h3 id="alarmTitle">Task Starting</h3>
+    <p id="alarmBody">—</p>
+    <button class="reset-btn" id="alarmStopBtn" style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 14px 30px -14px #ef4444">Stop Alarm</button>
   </div>
 </div>
 
@@ -472,6 +500,115 @@ $('#timeline').addEventListener('click',e=>{
   setTimeout(()=>row.classList.remove('pop'),400);
   render();
 });
+
+/* ---------- Alarms ---------- */
+let alarmTimers=[];
+function playAlarm(){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const now=ctx.currentTime;
+    const pulses=6;
+    for(let i=0;i<pulses;i++){
+      const o=ctx.createOscillator();
+      const g=ctx.createGain();
+      o.type='square';
+      o.frequency.value=(i%2===0)?1000:800;
+      const start=now+i*0.35;
+      g.gain.setValueAtTime(0.0001,start);
+      g.gain.exponentialRampToValueAtTime(0.45,start+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,start+0.28);
+      o.connect(g);g.connect(ctx.destination);
+      o.start(start);o.stop(start+0.3);
+    }
+  }catch(e){}
+}
+let alarmLoop=null;
+function startAlarmLoop(title,body){
+  stopAlarmLoop();
+  $('#alarmTitle').textContent=title||'Task Starting';
+  $('#alarmBody').textContent=body||'';
+  $('#alarmOverlay').classList.add('show');
+  playAlarm();
+  alarmLoop=setInterval(playAlarm,2200);
+}
+function stopAlarmLoop(){
+  if(alarmLoop){clearInterval(alarmLoop);alarmLoop=null;}
+  $('#alarmOverlay').classList.remove('show');
+}
+$('#alarmStopBtn').addEventListener('click',stopAlarmLoop);
+async function scheduleAlarms(){
+  alarmTimers.forEach(t=>clearTimeout(t));alarmTimers=[];
+  if(!('Notification' in window)){ $('#alarmStatus').textContent='Notifications not supported'; return; }
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){ $('#alarmStatus').textContent='Permission denied'; return; }
+  // register service worker
+  if('serviceWorker' in navigator){
+    try{ await navigator.serviceWorker.register('/sw.js'); }catch(e){}
+  }
+  const now=new Date();
+  const today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  let count=0;
+  schedule.forEach((r,i)=>{
+    const [h,m]=r[0].split(':').map(Number);
+    const when=new Date(today.getTime()+ (h*60+m)*60000);
+    if(when<=now) return;
+    count++;
+    // in-page timer
+    const delay=when-now;
+    const t=setTimeout(()=>{
+      startAlarmLoop('Task Starting: '+r[1], r[0]+' • '+r[2]);
+      try{ new Notification('Task starting: '+r[1], {body:r[0]+' • '+r[2], icon:''}); }catch(e){}
+      highlightCurrent();
+    },delay);
+    alarmTimers.push(t);
+    // background trigger via SW (if supported)
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.ready.then(reg=>{
+        if(reg && 'showNotification' in reg && window.TimestampTrigger){
+          try{
+            reg.showNotification('Task starting: '+r[1], {
+              body:r[0]+' • '+r[2],
+              tag:'task-'+i,
+              showTrigger:new TimestampTrigger(when.getTime())
+            });
+          }catch(e){}
+        }
+      }).catch(()=>{});
+    }
+  });
+  $('#alarmStatus').textContent='Alarms set for '+count+' upcoming tasks';
+  localStorage.setItem('alarms','on');
+}
+function disableAlarms(){
+  alarmTimers.forEach(t=>clearTimeout(t));alarmTimers=[];
+  stopAlarmLoop();
+  localStorage.setItem('alarms','off');
+  $('#alarmStatus').textContent='Alarms off';
+}
+$('#testAlarmBtn').addEventListener('click',async ()=>{
+  startAlarmLoop('Test Alarm', 'Alarm sound & notification working');
+  if('Notification' in window){
+    if(Notification.permission!=='granted'){ await Notification.requestPermission(); }
+    if(Notification.permission==='granted'){
+      try{ new Notification('Test Alarm', {body:'Alarm sound & notification working'}); }catch(e){}
+    }
+  }
+  $('#alarmStatus').textContent='Test alarm triggered';
+});
+
+$('#alarmBtn').addEventListener('click',async ()=>{
+  if(localStorage.getItem('alarms')==='on'){ disableAlarms(); }
+  else { await scheduleAlarms(); }
+  $('#alarmBtn').textContent = (localStorage.getItem('alarms')==='on') ? 'Disable Alarms' : 'Enable Alarms';
+});
+
+// init
+if(localStorage.getItem('alarms')==='on'){
+  $('#alarmBtn').textContent='Disable Alarms';
+  scheduleAlarms();
+} else {
+  $('#alarmBtn').textContent='Enable Alarms';
+}
 
 $('#resetBtn').addEventListener('click',()=>{
   if(confirm('Reset today\u2019s progress? This clears all completed items.')){
